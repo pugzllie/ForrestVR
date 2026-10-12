@@ -1,13 +1,14 @@
 
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js';
 
-// Scene
+
+
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
 
-// Camera
+
 const camera = new THREE.PerspectiveCamera(
-    75,
+    90,
     window.innerWidth / window.innerHeight,
     0.1,
     1000
@@ -18,41 +19,51 @@ const originalCameraQuaternion = new THREE.Quaternion();
 
 camera.position.copy(originalCameraPosition);
 
-// Renderer
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+
+const renderer = new THREE.WebGLRenderer({
+    antialias: true
+});
+
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.xr.enabled = false;
 
+
+renderer.autoClear = false;
+
 document.body.style.margin = '0';
 document.body.style.overflow = 'hidden';
-document.body.style.background = '#87ceeb';
+document.body.style.background = '#000';
 document.body.appendChild(renderer.domElement);
 
-// Lighting
-scene.add(new THREE.AmbientLight(0xffffff, 0.5));
 
-const sunlight = new THREE.DirectionalLight(0xffffff, 2);
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+
+const sunlight = new THREE.DirectionalLight(0xffffff, 1.8);
 sunlight.position.set(10, 20, 10);
 scene.add(sunlight);
 
-// Ground
+
+
 const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(100, 100),
+    new THREE.PlaneGeometry(200, 200),
     new THREE.MeshStandardMaterial({ color: 0x3b7a3b })
 );
 
 ground.rotation.x = -Math.PI / 2;
+ground.position.y = 0;
 scene.add(ground);
 
-// Trees
-function createTree(x, z) {
+
+function createTree(x, z, scale = 1) {
     const trunk = new THREE.Mesh(
         new THREE.CylinderGeometry(0.3, 0.4, 2, 8),
         new THREE.MeshStandardMaterial({ color: 0x6b3e26 })
     );
 
     trunk.position.set(x, 1, z);
+    trunk.scale.setScalar(scale);
     scene.add(trunk);
 
     const leaves = new THREE.Mesh(
@@ -60,7 +71,8 @@ function createTree(x, z) {
         new THREE.MeshStandardMaterial({ color: 0x176b2c })
     );
 
-    leaves.position.set(x, 3.2, z);
+    leaves.position.set(x, 3.2 * scale, z);
+    leaves.scale.setScalar(scale);
     scene.add(leaves);
 }
 
@@ -70,12 +82,23 @@ createTree(-6, -10);
 createTree(5, -12);
 createTree(0, -15);
 
-// Phone VR
+// Additional trees for a stronger sense of depth.
+createTree(-2, -3, 0.8);
+createTree(2, -9, 1.2);
+createTree(-9, -16, 1.4);
+createTree(8, -20, 1.5);
+createTree(-3, -25, 1.6);
+createTree(4, -30, 1.7);
+
+
+
 let phoneVR = false;
 let orientationAvailable = false;
 
 const stereo = new THREE.StereoCamera();
-stereo.eyeSep = 0.050;
+
+
+stereo.eyeSep = 0.064;
 
 const euler = new THREE.Euler(0, 0, 0, 'YXZ');
 const sensorQuaternion = new THREE.Quaternion();
@@ -112,19 +135,20 @@ function updatePhoneOrientation() {
     sensorQuaternion.setFromEuler(euler);
     sensorQuaternion.multiply(cameraCorrection);
 
-    const angle = THREE.MathUtils.degToRad(
+    const screenAngle = THREE.MathUtils.degToRad(
         window.screen.orientation?.angle ??
         window.orientation ??
         0
     );
 
-    screenCorrection.setFromAxisAngle(zee, -angle);
+    screenCorrection.setFromAxisAngle(zee, -screenAngle);
 
     camera.quaternion.copy(sensorQuaternion);
     camera.quaternion.multiply(screenCorrection);
 }
 
-// VR Button
+
+
 const vrButton = document.createElement('button');
 vrButton.textContent = 'ENTER PHONE VR';
 
@@ -146,7 +170,7 @@ Object.assign(vrButton.style, {
 
 document.body.appendChild(vrButton);
 
-// Status
+
 const status = document.createElement('div');
 status.textContent = 'Forest VR ready';
 
@@ -166,13 +190,18 @@ Object.assign(status.style, {
 
 document.body.appendChild(status);
 
-// Start and stop VR
+
+function setControlsVisible(visible) {
+    vrButton.style.display = visible ? 'block' : 'none';
+    status.style.display = visible ? 'block' : 'none';
+}
+
+
 vrButton.addEventListener('click', async () => {
     if (!phoneVR) {
         try {
             if (!window.isSecureContext) {
-                status.textContent =
-                    'Use HTTPS for phone motion tracking.';
+                status.textContent = 'Open the HTTPS website to use VR.';
                 return;
             }
 
@@ -198,8 +227,7 @@ vrButton.addEventListener('click', async () => {
             vrButton.textContent = 'EXIT PHONE VR';
 
             document.body.style.background = '#000000';
-            status.textContent =
-                'VR active — turn your phone to look around';
+            status.textContent = 'VR active';
 
             if (document.documentElement.requestFullscreen) {
                 try {
@@ -211,6 +239,8 @@ vrButton.addEventListener('click', async () => {
                 await window.screen.orientation?.lock?.('landscape');
             } catch (_) {}
 
+            setControlsVisible(false);
+
         } catch (error) {
             console.error(error);
             status.textContent =
@@ -218,6 +248,7 @@ vrButton.addEventListener('click', async () => {
         }
     } else {
         phoneVR = false;
+        orientationAvailable = false;
 
         window.removeEventListener(
             'deviceorientation',
@@ -231,6 +262,8 @@ vrButton.addEventListener('click', async () => {
         status.textContent = 'Forest VR ready';
         document.body.style.background = '#87ceeb';
 
+        setControlsVisible(true);
+
         if (document.fullscreenElement) {
             try {
                 await document.exitFullscreen();
@@ -239,8 +272,10 @@ vrButton.addEventListener('click', async () => {
     }
 });
 
-// Rendering
 function animate() {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
     camera.position.copy(originalCameraPosition);
 
     if (phoneVR && orientationAvailable) {
@@ -252,47 +287,50 @@ function animate() {
     camera.updateMatrixWorld(true);
 
     if (phoneVR) {
+
         stereo.update(camera);
 
-        const width = window.innerWidth;
-        const height = window.innerHeight;
-        const halfWidth = Math.floor(width / 2);
+        const leftWidth = Math.floor(width / 2);
+        const rightWidth = width - leftWidth;
 
         renderer.setScissorTest(true);
 
-        // Left eye
-        renderer.setViewport(0, 0, halfWidth, height);
-        renderer.setScissor(0, 0, halfWidth, height);
+
+        renderer.setViewport(0, 0, leftWidth, height);
+        renderer.setScissor(0, 0, leftWidth, height);
+        renderer.clear(true, true, true);
         renderer.render(scene, stereo.cameraL);
 
-        // Right eye
         renderer.setViewport(
-            halfWidth, 0, width - halfWidth, height
+            leftWidth, 0, rightWidth, height
         );
         renderer.setScissor(
-            halfWidth, 0, width - halfWidth, height
+            leftWidth, 0, rightWidth, height
         );
+        renderer.clear(true, true, true);
         renderer.render(scene, stereo.cameraR);
 
         renderer.setScissorTest(false);
     } else {
-        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.aspect = width / height;
         camera.updateProjectionMatrix();
 
-        renderer.setViewport(
-            0, 0, window.innerWidth, window.innerHeight
-        );
-
+        renderer.setViewport(0, 0, width, height);
+        renderer.setScissorTest(false);
+        renderer.clear(true, true, true);
         renderer.render(scene, camera);
     }
 }
 
 renderer.setAnimationLoop(animate);
 
-// Resize
+
 window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    camera.aspect = width / height;
     camera.updateProjectionMatrix();
 
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setSize(width, height);
 });
