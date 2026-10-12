@@ -75,7 +75,7 @@ let phoneVR = false;
 let orientationAvailable = false;
 
 const stereo = new THREE.StereoCamera();
-stereo.eyeSep = 0.064;
+stereo.eyeSep = 0.050;
 
 const euler = new THREE.Euler(0, 0, 0, 'YXZ');
 const sensorQuaternion = new THREE.Quaternion();
