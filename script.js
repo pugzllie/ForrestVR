@@ -28,7 +28,78 @@ renderer.autoClear = false;
 document.body.style.margin = '0';
 document.body.style.overflow = 'hidden';
 document.body.style.background = '#000';
+
+Object.assign(renderer.domElement.style, {
+    position: 'fixed',
+    top: '0',
+    left: '0',
+    width: '100%',
+    height: '100%',
+    zIndex: '1'
+});
+
 document.body.appendChild(renderer.domElement);
+
+const lensMask = document.createElement('canvas');
+const lensContext = lensMask.getContext('2d');
+
+Object.assign(lensMask.style, {
+    position: 'fixed',
+    top: '0',
+    left: '0',
+    width: '100%',
+    height: '100%',
+    zIndex: '2',
+    pointerEvents: 'none',
+    display: 'none'
+});
+
+document.body.appendChild(lensMask);
+
+function drawLensMask() {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+
+    lensMask.width = Math.round(width * pixelRatio);
+    lensMask.height = Math.round(height * pixelRatio);
+
+    lensContext.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+    lensContext.clearRect(0, 0, width, height);
+
+    lensContext.fillStyle = '#000000';
+    lensContext.fillRect(0, 0, width, height);
+
+    const size = Math.min(height * 0.84, width * 0.44);
+    const radius = size * 0.18;
+    const centerY = height / 2;
+
+    lensContext.globalCompositeOperation = 'destination-out';
+
+    lensContext.beginPath();
+    lensContext.roundRect(
+        width * 0.25 - size / 2,
+        centerY - size / 2,
+        size,
+        size,
+        radius
+    );
+    lensContext.fill();
+
+    lensContext.beginPath();
+    lensContext.roundRect(
+        width * 0.75 - size / 2,
+        centerY - size / 2,
+        size,
+        size,
+        radius
+    );
+    lensContext.fill();
+
+    lensContext.globalCompositeOperation = 'source-over';
+}
+
+drawLensMask();
 
 scene.add(new THREE.AmbientLight(0xffffff, 0.7));
 
@@ -51,7 +122,7 @@ function createTree(x, z, scale = 1) {
         new THREE.MeshStandardMaterial({ color: 0x6b3e26 })
     );
 
-    trunk.position.set(x, 1 * scale, z);
+    trunk.position.set(x, scale, z);
     trunk.scale.setScalar(scale);
     scene.add(trunk);
 
@@ -183,8 +254,7 @@ vrButton.addEventListener('click', async () => {
     if (!phoneVR) {
         try {
             if (!window.isSecureContext) {
-                status.textContent =
-                    'Open the HTTPS website to use VR.';
+                status.textContent = 'Open the HTTPS website to use VR.';
                 return;
             }
 
@@ -219,8 +289,9 @@ vrButton.addEventListener('click', async () => {
                 await window.screen.orientation?.lock?.('landscape');
             } catch (_) {}
 
+            drawLensMask();
+            lensMask.style.display = 'block';
             setControlsVisible(false);
-
         } catch (error) {
             console.error(error);
             status.textContent =
@@ -238,6 +309,7 @@ vrButton.addEventListener('click', async () => {
         camera.position.copy(originalCameraPosition);
         camera.quaternion.copy(originalCameraQuaternion);
 
+        lensMask.style.display = 'none';
         vrButton.textContent = 'ENTER PHONE VR';
 
         setControlsVisible(true);
@@ -282,17 +354,12 @@ function animate() {
         renderer.clear(true, true, true);
         renderer.render(scene, stereo.cameraL);
 
-        renderer.setViewport(
-            leftWidth, 0, rightWidth, height
-        );
-        renderer.setScissor(
-            leftWidth, 0, rightWidth, height
-        );
+        renderer.setViewport(leftWidth, 0, rightWidth, height);
+        renderer.setScissor(leftWidth, 0, rightWidth, height);
         renderer.clear(true, true, true);
         renderer.render(scene, stereo.cameraR);
 
         renderer.setScissorTest(false);
-
     } else {
         camera.aspect = width / height;
         camera.updateProjectionMatrix();
@@ -314,4 +381,5 @@ window.addEventListener('resize', () => {
     camera.updateProjectionMatrix();
 
     renderer.setSize(width, height);
+    drawLensMask();
 });
