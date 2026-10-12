@@ -1,6 +1,3 @@
-Replace your entire `script.js` with this version. I’ve put the rounded-square lens design directly into the code: two slightly separated rounded squares, with the sides curving outward and black space around them. The mask also stays synchronized when you enter VR or rotate the phone.
-
-```
 
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js';
 
