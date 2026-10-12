@@ -1,3 +1,6 @@
+Replace your entire `script.js` with this version. I’ve put the rounded-square lens design directly into the code: two slightly separated rounded squares, with the sides curving outward and black space around them. The mask also stays synchronized when you enter VR or rotate the phone.
+
+```
 
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js';
 
@@ -67,34 +70,34 @@ function drawLensMask() {
     lensContext.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
     lensContext.clearRect(0, 0, width, height);
 
-    lensContext.fillStyle = '#000000';
+    lensContext.fillStyle = '#000';
     lensContext.fillRect(0, 0, width, height);
 
-    const size = Math.min(height * 0.84, width * 0.44);
-    const radius = size * 0.18;
+    const size = Math.min(height * 0.82, width * 0.43);
     const centerY = height / 2;
+    const gap = width * 0.025;
+    const centerX = width / 2;
+    const radius = size * 0.22;
+
+    const leftX = centerX - gap / 2 - size;
+    const rightX = centerX + gap / 2;
 
     lensContext.globalCompositeOperation = 'destination-out';
 
-    lensContext.beginPath();
-    lensContext.roundRect(
-        width * 0.25 - size / 2,
-        centerY - size / 2,
-        size,
-        size,
-        radius
-    );
-    lensContext.fill();
+    function drawRoundedSquare(x) {
+        lensContext.beginPath();
+        lensContext.roundRect(
+            x,
+            centerY - size / 2,
+            size,
+            size,
+            radius
+        );
+        lensContext.fill();
+    }
 
-    lensContext.beginPath();
-    lensContext.roundRect(
-        width * 0.75 - size / 2,
-        centerY - size / 2,
-        size,
-        size,
-        radius
-    );
-    lensContext.fill();
+    drawRoundedSquare(leftX);
+    drawRoundedSquare(rightX);
 
     lensContext.globalCompositeOperation = 'source-over';
 }
@@ -138,13 +141,11 @@ function createTree(x, z, scale = 1) {
 
 createTree(-2.5, 1, 0.8);
 createTree(2.8, -1, 0.9);
-
 createTree(-4, -5);
 createTree(3, -6);
 createTree(-6, -10);
 createTree(5, -12);
 createTree(0, -15);
-
 createTree(-2, -3, 0.8);
 createTree(2, -9, 1.2);
 createTree(-9, -16, 1.4);
@@ -217,7 +218,7 @@ Object.assign(vrButton.style, {
     border: 'none',
     borderRadius: '10px',
     background: '#f28c28',
-    color: '#ffffff',
+    color: '#fff',
     fontSize: '16px',
     fontWeight: 'bold',
     zIndex: '1000',
@@ -235,10 +236,10 @@ Object.assign(status.style, {
     left: '0',
     width: '100%',
     textAlign: 'center',
-    color: '#ffffff',
+    color: '#fff',
     fontFamily: 'Arial, sans-serif',
     fontSize: '14px',
-    textShadow: '0 1px 4px #000000',
+    textShadow: '0 1px 4px #000',
     pointerEvents: 'none',
     zIndex: '999'
 });
@@ -373,13 +374,26 @@ function animate() {
 
 renderer.setAnimationLoop(animate);
 
-window.addEventListener('resize', () => {
+function resizeScene() {
     const width = window.innerWidth;
     const height = window.innerHeight;
 
-    camera.aspect = width / height;
-    camera.updateProjectionMatrix();
-
     renderer.setSize(width, height);
+    camera.aspect = phoneVR
+        ? Math.floor(width / 2) / height
+        : width / height;
+
+    camera.updateProjectionMatrix();
     drawLensMask();
-});
+    lensMask.style.display = phoneVR ? 'block' : 'none';
+}
+
+window.addEventListener('resize', resizeScene);
+window.addEventListener('orientationchange', resizeScene);
+
+```
+
+Important: The two rounded-square openings are created by the black overlay, while the forest is rendered separately for each eye. If the shape looks too square or too round on your phone, adjust these two values inside `drawLensMask()`:
+
+- `size * 0.22` controls how rounded the corners are.
+- `width * 0.025` controls the gap between the lenses.
