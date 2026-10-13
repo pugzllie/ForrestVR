@@ -1,4 +1,3 @@
-
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js';
 
 const scene = new THREE.Scene();
@@ -20,12 +19,14 @@ const renderer = new THREE.WebGLRenderer({
     antialias: true
 });
 
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.xr.enabled = false;
 renderer.autoClear = false;
+renderer.setClearColor(0x000000, 1);
 
 document.body.style.margin = '0';
+document.body.style.padding = '0';
 document.body.style.overflow = 'hidden';
 document.body.style.background = '#000';
 
@@ -67,34 +68,100 @@ function drawLensMask() {
     lensContext.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
     lensContext.clearRect(0, 0, width, height);
 
-    lensContext.fillStyle = '#000';
+    lensContext.globalCompositeOperation = 'source-over';
+    lensContext.fillStyle = '#000000';
     lensContext.fillRect(0, 0, width, height);
 
-    const size = Math.min(height * 0.82, width * 0.43);
-    const centerY = height / 2;
-    const gap = width * 0.025;
+    const lensSize = Math.min(height * 0.78, width * 0.365);
+    const lensWidth = lensSize;
+    const lensHeight = Math.min(height * 0.775, lensSize);
+
     const centerX = width / 2;
-    const radius = size * 0.22;
+    const centerY = height * 0.562;
+    const gap = width * 0.019;
 
-    const leftX = centerX - gap / 2 - size;
+    const leftX = centerX - gap / 2 - lensWidth;
     const rightX = centerX + gap / 2;
+    const topY = centerY - lensHeight / 2;
 
-    lensContext.globalCompositeOperation = 'destination-out';
+    function drawLens(x) {
+        const w = lensWidth;
+        const h = lensHeight;
+        const y = topY;
 
-    function drawRoundedSquare(x) {
         lensContext.beginPath();
-        lensContext.roundRect(
-            x,
-            centerY - size / 2,
-            size,
-            size,
-            radius
+
+        lensContext.moveTo(
+            x + w * 0.055,
+            y + h * 0.045
         );
+
+        lensContext.bezierCurveTo(
+            x + w * 0.28, y - h * 0.015,
+            x + w * 0.70, y - h * 0.015,
+            x + w * 0.945, y + h * 0.045
+        );
+
+        lensContext.bezierCurveTo(
+            x + w * 0.985, y + h * 0.20,
+            x + w * 1.015, y + h * 0.38,
+            x + w * 0.985, y + h * 0.61
+        );
+
+        lensContext.bezierCurveTo(
+            x + w * 0.97, y + h * 0.80,
+            x + w * 0.95, y + h * 0.91,
+            x + w * 0.935, y + h * 0.945
+        );
+
+        lensContext.bezierCurveTo(
+            x + w * 0.72, y + h * 1.015,
+            x + w * 0.28, y + h * 1.015,
+            x + w * 0.065, y + h * 0.945
+        );
+
+        lensContext.bezierCurveTo(
+            x + w * 0.025, y + h * 0.78,
+            x - w * 0.015, y + h * 0.39,
+            x + w * 0.025, y + h * 0.20
+        );
+
+        lensContext.bezierCurveTo(
+            x + w * 0.03, y + h * 0.12,
+            x + w * 0.04, y + h * 0.075,
+            x + w * 0.055, y + h * 0.045
+        );
+
+        lensContext.closePath();
         lensContext.fill();
     }
 
-    drawRoundedSquare(leftX);
-    drawRoundedSquare(rightX);
+    lensContext.globalCompositeOperation = 'destination-out';
+
+    drawLens(leftX);
+    drawLens(rightX);
+
+    lensContext.globalCompositeOperation = 'source-over';
+    lensContext.fillStyle = '#ffffff';
+    lensContext.strokeStyle = '#ffffff';
+
+    lensContext.beginPath();
+    lensContext.moveTo(centerX, height * 0.61);
+    lensContext.lineTo(centerX, height);
+    lensContext.lineWidth = 2;
+    lensContext.stroke();
+
+    const dotRadius = Math.max(0.8, width * 0.0013);
+    const dotY = centerY;
+
+    const leftDotX = leftX + lensWidth * 0.52;
+    const rightDotX = rightX + lensWidth * 0.48;
+
+    [leftDotX, rightDotX].forEach(x => {
+        lensContext.beginPath();
+        lensContext.arc(x, dotY, dotRadius, 0, Math.PI * 2);
+        lensContext.fill();
+    });
 
     lensContext.globalCompositeOperation = 'source-over';
 }
@@ -109,7 +176,9 @@ scene.add(sunlight);
 
 const ground = new THREE.Mesh(
     new THREE.PlaneGeometry(200, 200),
-    new THREE.MeshStandardMaterial({ color: 0x3b7a3b })
+    new THREE.MeshStandardMaterial({
+        color: 0x3b7a3b
+    })
 );
 
 ground.rotation.x = -Math.PI / 2;
@@ -119,7 +188,9 @@ scene.add(ground);
 function createTree(x, z, scale = 1) {
     const trunk = new THREE.Mesh(
         new THREE.CylinderGeometry(0.3, 0.4, 2, 8),
-        new THREE.MeshStandardMaterial({ color: 0x6b3e26 })
+        new THREE.MeshStandardMaterial({
+            color: 0x6b3e26
+        })
     );
 
     trunk.position.set(x, scale, z);
@@ -128,7 +199,9 @@ function createTree(x, z, scale = 1) {
 
     const leaves = new THREE.Mesh(
         new THREE.ConeGeometry(1.3, 3, 8),
-        new THREE.MeshStandardMaterial({ color: 0x176b2c })
+        new THREE.MeshStandardMaterial({
+            color: 0x176b2c
+        })
     );
 
     leaves.position.set(x, 3.2 * scale, z);
@@ -289,6 +362,7 @@ vrButton.addEventListener('click', async () => {
 
             drawLensMask();
             lensMask.style.display = 'block';
+
             setControlsVisible(false);
         } catch (error) {
             console.error(error);
@@ -317,6 +391,10 @@ vrButton.addEventListener('click', async () => {
                 await document.exitFullscreen();
             } catch (_) {}
         }
+
+        try {
+            await window.screen.orientation?.unlock?.();
+        } catch (_) {}
     }
 });
 
@@ -376,21 +454,16 @@ function resizeScene() {
     const height = window.innerHeight;
 
     renderer.setSize(width, height);
+
     camera.aspect = phoneVR
         ? Math.floor(width / 2) / height
         : width / height;
 
     camera.updateProjectionMatrix();
+
     drawLensMask();
     lensMask.style.display = phoneVR ? 'block' : 'none';
 }
 
 window.addEventListener('resize', resizeScene);
 window.addEventListener('orientationchange', resizeScene);
-
-```
-
-Important: The two rounded-square openings are created by the black overlay, while the forest is rendered separately for each eye. If the shape looks too square or too round on your phone, adjust these two values inside `drawLensMask()`:
-
-- `size * 0.22` controls how rounded the corners are.
-- `width * 0.025` controls the gap between the lenses.
