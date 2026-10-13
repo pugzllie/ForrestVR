@@ -76,7 +76,7 @@ function calculateLensLayout() {
     const screenHeight = window.innerHeight;
 
     const lensWidth = Math.min(
-        screenWidth * 0.44,
+        screenWidth * 0.46,
         screenHeight * 0.78
     );
 
@@ -87,11 +87,14 @@ function calculateLensLayout() {
 
     const centerX = screenWidth / 2;
     const centerY = screenHeight / 2;
-    const gap = screenWidth * 0.018;
+    const gap = screenWidth * 0.035;
 
     Object.assign(lensLayout, {
-        leftX: centerX - gap / 2 - lensWidth,
-        rightX: centerX + gap / 2,
+        leftX: Math.max(0, centerX - gap / 2 - lensWidth),
+        rightX: Math.min(
+            screenWidth - lensWidth,
+            centerX + gap / 2
+        ),
         topY: centerY - lensHeight / 2,
         width: lensWidth,
         height: lensHeight,
@@ -166,13 +169,22 @@ function drawLensMask() {
     drawLens(rightX);
 
     lensContext.globalCompositeOperation = 'source-over';
-    lensContext.strokeStyle = '#fff';
+    lensContext.fillStyle = '#000';
+
+    lensContext.fillRect(
+        screenWidth / 2 - screenWidth * 0.018,
+        0,
+        screenWidth * 0.036,
+        screenHeight
+    );
+
     lensContext.fillStyle = '#fff';
+    lensContext.strokeStyle = '#fff';
     lensContext.lineWidth = 2;
 
     lensContext.beginPath();
-    lensContext.moveTo(lensLayout.centerX, screenHeight * 0.62);
-    lensContext.lineTo(lensLayout.centerX, screenHeight);
+    lensContext.moveTo(screenWidth / 2, screenHeight * 0.62);
+    lensContext.lineTo(screenWidth / 2, screenHeight);
     lensContext.stroke();
 
     const dotRadius = Math.max(1, screenWidth * 0.0013);
@@ -272,30 +284,36 @@ cameraCorrection.setFromEuler(
     new THREE.Euler(-Math.PI / 2, 0, 0)
 );
 
+function updatePhoneOrientation(event) {
+    if (event) {
+        if (event.alpha === null) return;
+
+        orientationAvailable = true;
+
+        const alpha = THREE.MathUtils.degToRad(event.alpha);
+        const beta = THREE.MathUtils.degToRad(event.beta ?? 0);
+        const gamma = THREE.MathUtils.degToRad(event.gamma ?? 0);
+
+        euler.set(beta, alpha, -gamma, 'YXZ');
+
+        sensorQuaternion.setFromEuler(euler);
+        sensorQuaternion.multiply(cameraCorrection);
+
+        const screenAngle = THREE.MathUtils.degToRad(
+            window.screen.orientation?.angle ??
+            window.orientation ??
+            0
+        );
+
+        screenCorrection.setFromAxisAngle(zee, -screenAngle);
+
+        camera.quaternion.copy(sensorQuaternion);
+        camera.quaternion.multiply(screenCorrection);
+    }
+}
+
 function onDeviceOrientation(event) {
-    if (event.alpha === null) return;
-
-    orientationAvailable = true;
-
-    const alpha = THREE.MathUtils.degToRad(event.alpha);
-    const beta = THREE.MathUtils.degToRad(event.beta ?? 0);
-    const gamma = THREE.MathUtils.degToRad(event.gamma ?? 0);
-
-    euler.set(beta, alpha, -gamma, 'YXZ');
-
-    sensorQuaternion.setFromEuler(euler);
-    sensorQuaternion.multiply(cameraCorrection);
-
-    const screenAngle = THREE.MathUtils.degToRad(
-        window.screen.orientation?.angle ??
-        window.orientation ??
-        0
-    );
-
-    screenCorrection.setFromAxisAngle(zee, -screenAngle);
-
-    camera.quaternion.copy(sensorQuaternion);
-    camera.quaternion.multiply(screenCorrection);
+    updatePhoneOrientation(event);
 }
 
 const vrButton = document.createElement('button');
@@ -343,6 +361,22 @@ function setControlsVisible(visible) {
     status.style.display = visible ? 'block' : 'none';
 }
 
+function enterVRDisplay() {
+    calculateLensLayout();
+    drawLensMask();
+
+    lensMask.style.display = 'block';
+    vrButton.style.display = 'none';
+    status.style.display = 'none';
+}
+
+function exitVRDisplay() {
+    lensMask.style.display = 'none';
+
+    vrButton.textContent = 'ENTER PHONE VR';
+    setControlsVisible(true);
+}
+
 vrButton.addEventListener('click', async () => {
     if (phoneVR) {
         phoneVR = false;
@@ -356,9 +390,7 @@ vrButton.addEventListener('click', async () => {
         camera.position.copy(originalCameraPosition);
         camera.quaternion.copy(originalCameraQuaternion);
 
-        lensMask.style.display = 'none';
-        vrButton.textContent = 'ENTER PHONE VR';
-        setControlsVisible(true);
+        exitVRDisplay();
 
         if (document.fullscreenElement) {
             try {
@@ -412,11 +444,7 @@ vrButton.addEventListener('click', async () => {
             await window.screen.orientation?.lock?.('landscape');
         } catch (_) {}
 
-        calculateLensLayout();
-        drawLensMask();
-        lensMask.style.display = 'block';
-
-        setControlsVisible(false);
+        enterVRDisplay();
         resizeScene();
     } catch (error) {
         console.error(error);
@@ -442,12 +470,6 @@ function animate() {
     const screenHeight = window.innerHeight;
 
     camera.position.copy(originalCameraPosition);
-
-    if (phoneVR && orientationAvailable) {
-        updatePhoneOrientation();
-    } else if (!phoneVR) {
-        camera.quaternion.copy(originalCameraQuaternion);
-    }
 
     camera.updateMatrixWorld(true);
 
