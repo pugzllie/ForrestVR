@@ -1,12 +1,19 @@
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js';
 
-console.log("Three.js loaded successfully");
+document.body.replaceChildren();
+
+document.body.style.cssText = `
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background: #000;
+`;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
 
 const camera = new THREE.PerspectiveCamera(
-    90,
+    80,
     window.innerWidth / window.innerHeight,
     0.1,
     1000
@@ -18,24 +25,19 @@ const originalCameraQuaternion = new THREE.Quaternion();
 camera.position.copy(originalCameraPosition);
 
 const renderer = new THREE.WebGLRenderer({
-    antialias: true
+    antialias: true,
+    alpha: false
 });
 
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.xr.enabled = false;
 renderer.autoClear = false;
+renderer.xr.enabled = false;
 renderer.setClearColor(0x000000, 1);
-
-document.body.style.margin = '0';
-document.body.style.padding = '0';
-document.body.style.overflow = 'hidden';
-document.body.style.background = '#000';
 
 Object.assign(renderer.domElement.style, {
     position: 'fixed',
-    top: '0',
-    left: '0',
+    inset: '0',
     width: '100%',
     height: '100%',
     zIndex: '1'
@@ -48,8 +50,7 @@ const lensContext = lensMask.getContext('2d');
 
 Object.assign(lensMask.style, {
     position: 'fixed',
-    top: '0',
-    left: '0',
+    inset: '0',
     width: '100%',
     height: '100%',
     zIndex: '2',
@@ -58,6 +59,47 @@ Object.assign(lensMask.style, {
 });
 
 document.body.appendChild(lensMask);
+
+const lensLayout = {
+    leftX: 0,
+    rightX: 0,
+    topY: 0,
+    width: 0,
+    height: 0,
+    centerX: 0,
+    centerY: 0,
+    gap: 0
+};
+
+function calculateLensLayout() {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    const lensWidth = Math.min(
+        height * 0.78,
+        width * 0.365
+    );
+
+    const lensHeight = Math.min(
+        height * 0.775,
+        lensWidth
+    );
+
+    const centerX = width / 2;
+    const centerY = height * 0.562;
+    const gap = width * 0.019;
+
+    Object.assign(lensLayout, {
+        leftX: centerX - gap / 2 - lensWidth,
+        rightX: centerX + gap / 2,
+        topY: centerY - lensHeight / 2,
+        width: lensWidth,
+        height: lensHeight,
+        centerX,
+        centerY,
+        gap
+    });
+}
 
 function drawLensMask() {
     const width = window.innerWidth;
@@ -71,32 +113,24 @@ function drawLensMask() {
     lensContext.clearRect(0, 0, width, height);
 
     lensContext.globalCompositeOperation = 'source-over';
-    lensContext.fillStyle = '#000000';
+    lensContext.fillStyle = '#000';
     lensContext.fillRect(0, 0, width, height);
 
-    const lensSize = Math.min(height * 0.78, width * 0.365);
-    const lensWidth = lensSize;
-    const lensHeight = Math.min(height * 0.775, lensSize);
-
-    const centerX = width / 2;
-    const centerY = height * 0.562;
-    const gap = width * 0.019;
-
-    const leftX = centerX - gap / 2 - lensWidth;
-    const rightX = centerX + gap / 2;
-    const topY = centerY - lensHeight / 2;
+    const {
+        leftX,
+        rightX,
+        topY,
+        width: w,
+        height: h,
+        centerX,
+        centerY
+    } = lensLayout;
 
     function drawLens(x) {
-        const w = lensWidth;
-        const h = lensHeight;
         const y = topY;
 
         lensContext.beginPath();
-
-        lensContext.moveTo(
-            x + w * 0.055,
-            y + h * 0.045
-        );
+        lensContext.moveTo(x + w * 0.055, y + h * 0.045);
 
         lensContext.bezierCurveTo(
             x + w * 0.28, y - h * 0.015,
@@ -105,7 +139,7 @@ function drawLensMask() {
         );
 
         lensContext.bezierCurveTo(
-            x + w * 0.985, y + h * 0.20,
+            x + w * 1.015, y + h * 0.20,
             x + w * 1.015, y + h * 0.38,
             x + w * 0.985, y + h * 0.61
         );
@@ -123,7 +157,7 @@ function drawLensMask() {
         );
 
         lensContext.bezierCurveTo(
-            x + w * 0.025, y + h * 0.78,
+            x - w * 0.015, y + h * 0.78,
             x - w * 0.015, y + h * 0.39,
             x + w * 0.025, y + h * 0.20
         );
@@ -144,8 +178,8 @@ function drawLensMask() {
     drawLens(rightX);
 
     lensContext.globalCompositeOperation = 'source-over';
-    lensContext.fillStyle = '#ffffff';
-    lensContext.strokeStyle = '#ffffff';
+    lensContext.fillStyle = '#fff';
+    lensContext.strokeStyle = '#fff';
 
     lensContext.beginPath();
     lensContext.moveTo(centerX, height * 0.61);
@@ -153,24 +187,24 @@ function drawLensMask() {
     lensContext.lineWidth = 2;
     lensContext.stroke();
 
-    const dotRadius = Math.max(0.8, width * 0.0013);
-    const dotY = centerY;
+    const dotRadius = Math.max(1, width * 0.0013);
 
-    const leftDotX = leftX + lensWidth * 0.52;
-    const rightDotX = rightX + lensWidth * 0.48;
-
-    [leftDotX, rightDotX].forEach(x => {
+    for (const x of [
+        leftX + w * 0.52,
+        rightX + w * 0.48
+    ]) {
         lensContext.beginPath();
-        lensContext.arc(x, dotY, dotRadius, 0, Math.PI * 2);
+        lensContext.arc(x, centerY, dotRadius, 0, Math.PI * 2);
         lensContext.fill();
-    });
+    }
 
     lensContext.globalCompositeOperation = 'source-over';
 }
 
+calculateLensLayout();
 drawLensMask();
 
-scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+scene.add(new THREE.HemisphereLight(0xffffff, 0x49613a, 1.5));
 
 const sunlight = new THREE.DirectionalLight(0xffffff, 1.8);
 sunlight.position.set(10, 20, 10);
@@ -178,21 +212,16 @@ scene.add(sunlight);
 
 const ground = new THREE.Mesh(
     new THREE.PlaneGeometry(200, 200),
-    new THREE.MeshStandardMaterial({
-        color: 0x3b7a3b
-    })
+    new THREE.MeshStandardMaterial({ color: 0x3b7a3b })
 );
 
 ground.rotation.x = -Math.PI / 2;
-ground.position.y = 0;
 scene.add(ground);
 
 function createTree(x, z, scale = 1) {
     const trunk = new THREE.Mesh(
         new THREE.CylinderGeometry(0.3, 0.4, 2, 8),
-        new THREE.MeshStandardMaterial({
-            color: 0x6b3e26
-        })
+        new THREE.MeshStandardMaterial({ color: 0x6b3e26 })
     );
 
     trunk.position.set(x, scale, z);
@@ -201,9 +230,7 @@ function createTree(x, z, scale = 1) {
 
     const leaves = new THREE.Mesh(
         new THREE.ConeGeometry(1.3, 3, 8),
-        new THREE.MeshStandardMaterial({
-            color: 0x176b2c
-        })
+        new THREE.MeshStandardMaterial({ color: 0x176b2c })
     );
 
     leaves.position.set(x, 3.2 * scale, z);
@@ -211,25 +238,27 @@ function createTree(x, z, scale = 1) {
     scene.add(leaves);
 }
 
-createTree(-2.5, 1, 0.8);
-createTree(2.8, -1, 0.9);
-createTree(-4, -5);
-createTree(3, -6);
-createTree(-6, -10);
-createTree(5, -12);
-createTree(0, -15);
-createTree(-2, -3, 0.8);
-createTree(2, -9, 1.2);
-createTree(-9, -16, 1.4);
-createTree(8, -20, 1.5);
-createTree(-3, -25, 1.6);
-createTree(4, -30, 1.7);
+[
+    [-2.5, 1, 0.8],
+    [2.8, -1, 0.9],
+    [-4, -5, 1],
+    [3, -6, 1],
+    [-6, -10, 1],
+    [5, -12, 1],
+    [0, -15, 1],
+    [-2, -3, 0.8],
+    [2, -9, 1.2],
+    [-9, -16, 1.4],
+    [8, -20, 1.5],
+    [-3, -25, 1.6],
+    [4, -30, 1.7]
+].forEach(([x, z, scale]) => createTree(x, z, scale));
 
 let phoneVR = false;
 let orientationAvailable = false;
 
 const stereo = new THREE.StereoCamera();
-stereo.eyeSep = 0.032;
+stereo.eyeSep = 0.02;
 
 const euler = new THREE.Euler(0, 0, 0, 'YXZ');
 const sensorQuaternion = new THREE.Quaternion();
@@ -293,7 +322,7 @@ Object.assign(vrButton.style, {
     color: '#fff',
     fontSize: '16px',
     fontWeight: 'bold',
-    zIndex: '1000',
+    zIndex: '10',
     cursor: 'pointer'
 });
 
@@ -313,7 +342,7 @@ Object.assign(status.style, {
     fontSize: '14px',
     textShadow: '0 1px 4px #000',
     pointerEvents: 'none',
-    zIndex: '999'
+    zIndex: '10'
 });
 
 document.body.appendChild(status);
@@ -324,54 +353,7 @@ function setControlsVisible(visible) {
 }
 
 vrButton.addEventListener('click', async () => {
-    if (!phoneVR) {
-        try {
-            if (!window.isSecureContext) {
-                status.textContent = 'Open the HTTPS website to use VR.';
-                return;
-            }
-
-            if (
-                typeof DeviceOrientationEvent !== 'undefined' &&
-                typeof DeviceOrientationEvent.requestPermission === 'function'
-            ) {
-                const permission =
-                    await DeviceOrientationEvent.requestPermission();
-
-                if (permission !== 'granted') {
-                    status.textContent = 'Motion permission denied.';
-                    return;
-                }
-            }
-
-            window.addEventListener(
-                'deviceorientation',
-                onDeviceOrientation
-            );
-
-            phoneVR = true;
-            vrButton.textContent = 'EXIT PHONE VR';
-
-            if (document.documentElement.requestFullscreen) {
-                try {
-                    await document.documentElement.requestFullscreen();
-                } catch (_) {}
-            }
-
-            try {
-                await window.screen.orientation?.lock?.('landscape');
-            } catch (_) {}
-
-            drawLensMask();
-            lensMask.style.display = 'block';
-
-            setControlsVisible(false);
-        } catch (error) {
-            console.error(error);
-            status.textContent =
-                'Could not start VR. Check browser permissions.';
-        }
-    } else {
+    if (phoneVR) {
         phoneVR = false;
         orientationAvailable = false;
 
@@ -385,7 +367,6 @@ vrButton.addEventListener('click', async () => {
 
         lensMask.style.display = 'none';
         vrButton.textContent = 'ENTER PHONE VR';
-
         setControlsVisible(true);
 
         if (document.fullscreenElement) {
@@ -397,12 +378,73 @@ vrButton.addEventListener('click', async () => {
         try {
             await window.screen.orientation?.unlock?.();
         } catch (_) {}
+
+        resizeScene();
+        return;
+    }
+
+    try {
+        if (!window.isSecureContext) {
+            status.textContent = 'Open this page using HTTPS to use VR.';
+            return;
+        }
+
+        if (
+            typeof DeviceOrientationEvent !== 'undefined' &&
+            typeof DeviceOrientationEvent.requestPermission === 'function'
+        ) {
+            const permission =
+                await DeviceOrientationEvent.requestPermission();
+
+            if (permission !== 'granted') {
+                status.textContent = 'Motion permission denied.';
+                return;
+            }
+        }
+
+        window.addEventListener(
+            'deviceorientation',
+            onDeviceOrientation
+        );
+
+        phoneVR = true;
+        vrButton.textContent = 'EXIT PHONE VR';
+
+        if (document.documentElement.requestFullscreen) {
+            try {
+                await document.documentElement.requestFullscreen();
+            } catch (_) {}
+        }
+
+        try {
+            await window.screen.orientation?.lock?.('landscape');
+        } catch (_) {}
+
+        calculateLensLayout();
+        drawLensMask();
+        lensMask.style.display = 'block';
+
+        setControlsVisible(false);
+        resizeScene();
+    } catch (error) {
+        console.error(error);
+        phoneVR = false;
+        lensMask.style.display = 'none';
+        setControlsVisible(true);
+        status.textContent = 'Could not start VR. Check browser permissions.';
     }
 });
 
+function renderEye(eyeCamera, x, y, width, height) {
+    renderer.setViewport(x, y, width, height);
+    renderer.setScissor(x, y, width, height);
+    renderer.clear(true, true, true);
+    renderer.render(scene, eyeCamera);
+}
+
 function animate() {
-    const width = window.innerWidth;
-    const height = window.innerHeight;
+    const screenWidth = window.innerWidth;
+    const screenHeight = window.innerHeight;
 
     camera.position.copy(originalCameraPosition);
 
@@ -414,106 +456,72 @@ function animate() {
 
     camera.updateMatrixWorld(true);
 
-    if (phoneVR) {
-        const lensWidth = Math.min(
-            height * 0.78,
-            width * 0.365
-        );
+    renderer.setScissorTest(false);
+    renderer.setViewport(0, 0, screenWidth, screenHeight);
+    renderer.clear(true, true, true);
 
-        const lensHeight = Math.min(
-            height * 0.775,
-            lensWidth
-        );
-
-        const centerX = width / 2;
-        const centerY = height * 0.562;
-        const gap = width * 0.019;
-
-        const leftX = Math.round(
-            centerX - gap / 2 - lensWidth
-        );
-
-        const rightX = Math.round(
-            centerX + gap / 2
-        );
-
-        const topY = centerY - lensHeight / 2;
-        const viewportWidth = Math.round(lensWidth);
-        const viewportHeight = Math.round(lensHeight);
-
-        const viewportY = Math.round(
-            height - topY - lensHeight
-        );
-
-        camera.aspect = viewportWidth / viewportHeight;
+    if (!phoneVR) {
+        camera.aspect = screenWidth / screenHeight;
         camera.updateProjectionMatrix();
-        camera.updateMatrixWorld(true);
-
-        stereo.eyeSep = 0.032;
-        stereo.update(camera);
-
-        renderer.setScissorTest(true);
-
-        renderer.setViewport(
-            leftX,
-            viewportY,
-            viewportWidth,
-            viewportHeight
-        );
-
-        renderer.setScissor(
-            leftX,
-            viewportY,
-            viewportWidth,
-            viewportHeight
-        );
-
-        renderer.clear(true, true, true);
-        renderer.render(scene, stereo.cameraL);
-
-        renderer.setViewport(
-            rightX,
-            viewportY,
-            viewportWidth,
-            viewportHeight
-        );
-
-        renderer.setScissor(
-            rightX,
-            viewportY,
-            viewportWidth,
-            viewportHeight
-        );
-
-        renderer.clear(true, true, true);
-        renderer.render(scene, stereo.cameraR);
-
-        renderer.setScissorTest(false);
-    } else {
-        camera.aspect = width / height;
-        camera.updateProjectionMatrix();
-
-        renderer.setViewport(0, 0, width, height);
-        renderer.setScissorTest(false);
-        renderer.clear(true, true, true);
         renderer.render(scene, camera);
+        return;
     }
+
+    const {
+        leftX,
+        rightX,
+        topY,
+        width,
+        height
+    } = lensLayout;
+
+    const xLeft = Math.round(leftX);
+    const xRight = Math.round(rightX);
+    const viewWidth = Math.round(width);
+    const viewHeight = Math.round(height);
+    const viewY = Math.round(screenHeight - topY - height);
+
+    camera.aspect = viewWidth / viewHeight;
+    camera.updateProjectionMatrix();
+    camera.updateMatrixWorld(true);
+
+    stereo.eyeSep = 0.02;
+    stereo.update(camera);
+
+    renderer.setScissorTest(true);
+
+    renderEye(
+        stereo.cameraL,
+        xLeft,
+        viewY,
+        viewWidth,
+        viewHeight
+    );
+
+    renderEye(
+        stereo.cameraR,
+        xRight,
+        viewY,
+        viewWidth,
+        viewHeight
+    );
+
+    renderer.setScissorTest(false);
 }
 
 renderer.setAnimationLoop(animate);
 
 function resizeScene() {
-    const width = window.innerWidth;
-    const height = window.innerHeight;
+    renderer.setSize(window.innerWidth, window.innerHeight);
 
-    renderer.setSize(width, height);
+    calculateLensLayout();
+    drawLensMask();
 
     if (!phoneVR) {
-        camera.aspect = width / height;
+        camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
     }
 
-    drawLensMask();
     lensMask.style.display = phoneVR ? 'block' : 'none';
 }
 
