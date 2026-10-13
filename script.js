@@ -1,5 +1,5 @@
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js';
-
+console.log("Three.js loaded successfully");
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
 
