@@ -1,5 +1,7 @@
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js';
+
 console.log("Three.js loaded successfully");
+
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
 
@@ -227,7 +229,7 @@ let phoneVR = false;
 let orientationAvailable = false;
 
 const stereo = new THREE.StereoCamera();
-stereo.eyeSep = 0.064;
+stereo.eyeSep = 0.032;
 
 const euler = new THREE.Euler(0, 0, 0, 'YXZ');
 const sensorQuaternion = new THREE.Quaternion();
@@ -413,25 +415,76 @@ function animate() {
     camera.updateMatrixWorld(true);
 
     if (phoneVR) {
-        const leftWidth = Math.floor(width / 2);
-        const rightWidth = width - leftWidth;
+        const lensWidth = Math.min(
+            height * 0.78,
+            width * 0.365
+        );
 
-        camera.aspect = leftWidth / height;
+        const lensHeight = Math.min(
+            height * 0.775,
+            lensWidth
+        );
+
+        const centerX = width / 2;
+        const centerY = height * 0.562;
+        const gap = width * 0.019;
+
+        const leftX = Math.round(
+            centerX - gap / 2 - lensWidth
+        );
+
+        const rightX = Math.round(
+            centerX + gap / 2
+        );
+
+        const topY = centerY - lensHeight / 2;
+        const viewportWidth = Math.round(lensWidth);
+        const viewportHeight = Math.round(lensHeight);
+
+        const viewportY = Math.round(
+            height - topY - lensHeight
+        );
+
+        camera.aspect = viewportWidth / viewportHeight;
         camera.updateProjectionMatrix();
         camera.updateMatrixWorld(true);
 
-        stereo.eyeSep = 0.064;
+        stereo.eyeSep = 0.032;
         stereo.update(camera);
 
         renderer.setScissorTest(true);
 
-        renderer.setViewport(0, 0, leftWidth, height);
-        renderer.setScissor(0, 0, leftWidth, height);
+        renderer.setViewport(
+            leftX,
+            viewportY,
+            viewportWidth,
+            viewportHeight
+        );
+
+        renderer.setScissor(
+            leftX,
+            viewportY,
+            viewportWidth,
+            viewportHeight
+        );
+
         renderer.clear(true, true, true);
         renderer.render(scene, stereo.cameraL);
 
-        renderer.setViewport(leftWidth, 0, rightWidth, height);
-        renderer.setScissor(leftWidth, 0, rightWidth, height);
+        renderer.setViewport(
+            rightX,
+            viewportY,
+            viewportWidth,
+            viewportHeight
+        );
+
+        renderer.setScissor(
+            rightX,
+            viewportY,
+            viewportWidth,
+            viewportHeight
+        );
+
         renderer.clear(true, true, true);
         renderer.render(scene, stereo.cameraR);
 
@@ -455,11 +508,10 @@ function resizeScene() {
 
     renderer.setSize(width, height);
 
-    camera.aspect = phoneVR
-        ? Math.floor(width / 2) / height
-        : width / height;
-
-    camera.updateProjectionMatrix();
+    if (!phoneVR) {
+        camera.aspect = width / height;
+        camera.updateProjectionMatrix();
+    }
 
     drawLensMask();
     lensMask.style.display = phoneVR ? 'block' : 'none';
